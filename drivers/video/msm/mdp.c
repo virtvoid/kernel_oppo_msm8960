@@ -44,6 +44,10 @@
 #endif
 #include "mipi_dsi.h"
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#undef CONFIG_HAS_EARLYSUSPEND
+#endif
+
 #ifdef CONFIG_MACH_APQ8064_FIND5
 #define FORBID_POWER_COLLAPSE
 #ifdef FORBID_POWER_COLLAPSE
