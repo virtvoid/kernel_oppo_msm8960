@@ -52,6 +52,7 @@
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
+#define UINT32_MAX (0xFFFFFFFFU)
 
 static int has_48mhz_xo = WCNSS_CONFIG_UNSPECIFIED;
 module_param(has_48mhz_xo, int, S_IWUSR | S_IRUGO);
@@ -101,6 +102,8 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define	WCNSS_CALDATA_DNLD_REQ        (WCNSS_CTRL_MSG_START + 6)
 #define	WCNSS_CALDATA_DNLD_RSP        (WCNSS_CTRL_MSG_START + 7)
 
+/* max 20mhz channel count */
+#define WCNSS_MAX_CH_NUM			45
 
 #define VALID_VERSION(version) \
 	((strncmp(version, "INVALID", WCNSS_VERSION_LEN)) ? 1 : 0)
@@ -264,7 +267,7 @@ static struct {
 	int	fw_cal_available;
 	int	user_cal_read;
 	int	user_cal_available;
-	int	user_cal_rcvd;
+	u32	user_cal_rcvd;
 	int	user_cal_exp_size;
 	int	device_opened;
 	int	ctrl_device_opened;
@@ -272,6 +275,8 @@ static struct {
 	struct mutex dev_lock;
 	struct mutex ctrl_lock;
 	wait_queue_head_t read_wait;
+	u16 unsafe_ch_count;
+	u16 unsafe_ch_list[WCNSS_MAX_CH_NUM];
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -864,6 +869,35 @@ int fw_cal_data_available(void)
 	else
 		return -ENODEV;
 }
+
+int wcnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count)
+{
+	if (penv && unsafe_ch_list &&
+		(ch_count <= WCNSS_MAX_CH_NUM)) {
+		memcpy((char *)penv->unsafe_ch_list,
+			(char *)unsafe_ch_list, ch_count * sizeof(u16));
+		penv->unsafe_ch_count = ch_count;
+		return 0;
+	} else
+		return -ENODEV;
+}
+EXPORT_SYMBOL(wcnss_set_wlan_unsafe_channel);
+
+int wcnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 buffer_size,
+					u16 *ch_count)
+{
+	if (penv) {
+		if (buffer_size < penv->unsafe_ch_count * sizeof(u16))
+			return -ENODEV;
+		memcpy((char *)unsafe_ch_list,
+			(char *)penv->unsafe_ch_list,
+			penv->unsafe_ch_count * sizeof(u16));
+		*ch_count = penv->unsafe_ch_count;
+		return 0;
+	} else
+		return -ENODEV;
+}
+EXPORT_SYMBOL(wcnss_get_wlan_unsafe_channel);
 
 static int wcnss_smd_tx(void *data, int len)
 {
@@ -1604,7 +1638,7 @@ static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 			*user_buffer, size_t count, loff_t *position)
 {
 	int rc = 0;
-	int size = 0;
+	size_t size = 0;
 
 	if (!penv || !penv->device_opened || penv->user_cal_available)
 		return -EFAULT;
@@ -1612,7 +1646,7 @@ static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 	if (penv->user_cal_rcvd == 0 && count >= 4
 			&& !penv->user_cal_data) {
 		rc = copy_from_user((void *)&size, user_buffer, 4);
-		if (size > MAX_CALIBRATED_DATA_SIZE) {
+		if (!size || size > MAX_CALIBRATED_DATA_SIZE) {
 			pr_err(DEVICE " invalid size to write %d\n", size);
 			return -EFAULT;
 		}
@@ -1631,7 +1665,8 @@ static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 	} else if (penv->user_cal_rcvd == 0 && count < 4)
 		return -EFAULT;
 
-	if (MAX_CALIBRATED_DATA_SIZE < count + penv->user_cal_rcvd) {
+	if ((UINT32_MAX - count < penv->user_cal_rcvd) ||
+	     MAX_CALIBRATED_DATA_SIZE < count + penv->user_cal_rcvd) {
 		pr_err(DEVICE " invalid size to write %d\n", count +
 				penv->user_cal_rcvd);
 		rc = -ENOMEM;
