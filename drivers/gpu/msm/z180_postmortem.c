@@ -205,8 +205,9 @@ static void z180_dump_ib(struct kgsl_device *device)
  */
 int z180_dump(struct kgsl_device *device, int manual)
 {
+#ifndef CONFIG_MACH_APQ8064_FIND5
 	struct z180_device *z180_dev = Z180_DEVICE(device);
-
+#endif	
 	mb();
 
 	KGSL_LOG_DUMP(device, "Retired Timestamp: %d\n", z180_dev->timestamp);
