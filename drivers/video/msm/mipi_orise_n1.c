@@ -24,10 +24,6 @@
 #include <linux/gpio.h>
 #include <linux/switch.h>
 
-#ifndef CONFIG_MACH_N1
-#define CONFIG_MACH_N1
-#endif
-
 #define PM8921_GPIO_BASE        NR_GPIO_IRQS
 #define PM8921_GPIO_PM_TO_SYS(pm_gpio)  (pm_gpio - 1 + PM8921_GPIO_BASE)
 #define LCD_TE_GPIO  83
@@ -37,20 +33,12 @@ unsigned long flags;
 #define MIPI_CMD_INIT
 //#define MIPI_READ
 
-/* OPPO 2013-09-30 gousj Add begin for CABC */
 #ifdef CONFIG_MACH_N1
 #define PANEL_CABC
 #endif
-/* OPPO 2013-09-30 gousj Add end */
-/* OPPO 2013-09-30 gousj Add begin for TEST */
 #ifdef CONFIG_MACH_N1
 #define PANEL_TEST
 #endif
-/* OPPO 2013-09-30 gousj Add end */
-
-/*OPPO 2013-09-11 zhzhyon Add for SRE*/
-//#define PANEL_SRE
-/*OPPO 2013-09-11 zhzhyon Add end*/
 
 extern struct platform_device *g_mdp_dev;
 static struct mipi_dsi_panel_platform_data *mipi_orise_pdata;
@@ -71,12 +59,9 @@ static int irq_state = 1;
 struct delayed_work pwm_delay_work;
 
 static struct wake_lock te_wake_lock;
-/* OPPO 2013-03-07 zhengzk Add begin for reason */
 static struct switch_dev display_switch;
-/* OPPO 2013-03-07 zhengzk Add end */
 struct platform_device *pdev = NULL;
 
-/*OPPO 2013-09-27 zhzhyon Add for reason*/
 #ifdef PANEL_CABC
 enum
 {
@@ -102,7 +87,6 @@ static int sre_mode = SRE_CLOSE;
 static int sre_level = 0;
 extern struct mutex sre_mutex;
 #endif
-/*OPPO 2013-09-27 zhzhyon Add end*/
 
 
 
@@ -199,7 +183,6 @@ static char sleep_in[2] =
     0x00,
 };
 
-/* OPPO 2013-12-10 gousj Modify begin for new panel adaption tear effects */
 #ifdef CONFIG_MACH_N1
 static char tear_scan[3] =
 {
@@ -208,7 +191,6 @@ static char tear_scan[3] =
     0xc8
 };
 #endif
-/* OPPO 2013-12-10 gousj Add end */
 
 static char nvm_black[5] =
 {
@@ -279,7 +261,6 @@ static char color_enhance[] =
     0x3f,
     0x3f
 };
-/*OPPO 2013-10-11 zhzhyon Add for reason*/
 #ifdef PANEL_SRE
 static char sre_off[2] =
 {
@@ -408,10 +389,8 @@ static int set_sre_resume_mode(int level)
     return ret;
 }
 #endif
-/*OPPO 2013-10-11 zhzhyon Add end*/
 
 
-/*OPPO Neal add 2013-8-13 for cabc*/
 #ifdef PANEL_CABC
 static char cabc_off[2] = { 0x55, 0x00};
 static char cabc_user_interface_image[2] = { 0x55, 0x01};
@@ -426,14 +405,12 @@ static struct dsi_cmd_desc cabc_off_sequence[] =
         DTYPE_DCS_WRITE1, 1, 0, 0, 10,
         sizeof(cabc_off), cabc_off
     },
-    /*OPPO 2013-10-18 zhzhyon Add for reason*/
 #ifdef PANEL_SRE
     {
         DTYPE_DCS_WRITE1, 1, 0, 0, 10,
         sizeof(sre_off), sre_off
     },
 #endif
-    /*OPPO 2013-10-18 zhzhyon Add end*/
     {
         DTYPE_DCS_WRITE, 1, 0, 0, 10,
         sizeof(display_on), display_on
@@ -590,7 +567,6 @@ static struct dsi_cmd_desc cmd_mipi_off_sequence[] =
 
 #endif
 
-/* OPPO 2013-10-09 gousj Add begin for nothing */
 #ifdef CONFIG_MACH_N1
 int mipi_orise_display_off(struct platform_device *pdev)
 {
@@ -602,9 +578,7 @@ int mipi_orise_sleep_in(struct platform_device *pdev)
     return 0;
 }
 #endif
-/* OPPO 2013-10-09 gousj Add end */
 
-/* OPPO 2013-03-07 zhengzk Add begin for reason */
 static int operate_display_switch(void)
 {
     int ret = 0;
@@ -620,7 +594,6 @@ static int operate_display_switch(void)
     switch_set_state(&display_switch, te_state);
     return ret;
 }
-/* OPPO 2013-03-07 zhengzk Add end */
 
 #ifdef MIPI_READ
 static char addr_buf[2] = {0x53, 0x00};     //read register backlight ctrl
@@ -649,7 +622,6 @@ static int mipi_orise_rd(struct msm_fb_data_type *mfd, char addr)
 #endif
 
 
-/*OPPO 2013-09-27 zhzhyon Add for reason*/
 #ifdef PANEL_CABC
 static int set_cabc_resume_mode(int mode)
 {
@@ -679,16 +651,13 @@ static int set_cabc_resume_mode(int mode)
     }
     printk(KERN_INFO "set cabc mode %d finished\n",mode);
 
-    /* OPPO 2013-10-15 gousj Add begin for pwm flicker */
 #ifdef CONFIG_MACH_N1
     schedule_delayed_work(&pwm_delay_work, msecs_to_jiffies(3000));
 #endif
-    /* OPPO 2013-10-15 gousj Add end */
 
     return ret;
 }
 #endif
-/*OPPO 2013-09-27 zhzhyon Add end*/
 
 
 
@@ -711,12 +680,9 @@ static int mipi_orise_lcd_on(struct platform_device *pdev)
         {
             mipi_dsi_cmds_tx(&orise_tx_buf, cmd_mipi_initial_sequence,
                              ARRAY_SIZE(cmd_mipi_initial_sequence));
-            /*OPPO 2013-09-27 zhzhyon Add for reason*/
 #ifdef PANEL_CABC
             set_cabc_resume_mode(cabc_mode);
 #endif
-            /*OPPO 2013-09-27 zhzhyon Add end*/
-            /*OPPO 2013-10-11 zhzhyon Add for reason*/
 #ifdef PANEL_SRE
             if(sre_level != sre_mode)
             {
@@ -724,7 +690,6 @@ static int mipi_orise_lcd_on(struct platform_device *pdev)
                 sre_mode = sre_level;
             }
 #endif
-            /*OPPO 2013-10-11 zhzhyon Add end*/
 
             pr_debug("Neal write init sequence finish\n");
         }
@@ -748,11 +713,9 @@ static int mipi_orise_lcd_on(struct platform_device *pdev)
         pr_info("Neal-------%s: lcd initial!\n",__func__);
         mipi_dsi_cmds_tx(&orise_tx_buf, cmd_mipi_initial_sequence,
                          ARRAY_SIZE(cmd_mipi_initial_sequence));
-        /* OPPO 2013-10-10 gousj Add begin for cabc init on system up */
 #ifdef CONFIG_MACH_N1
         cabc_mode = CABC_HIGH_MODE;
 #endif
-        /* OPPO 2013-10-10 gousj Add end */
         flag_lcd_resume = true;
     }
 #endif
@@ -812,7 +775,6 @@ static ssize_t attr_orise_reinit(struct device *dev,
     allow_suspend();
     return 0;
 }
-/* OPPO Neal modify for AT test restart*/
 static ssize_t attr_orise_lcdon(struct device *dev,
                                 struct device_attribute *attr, char *buf)
 {
@@ -847,7 +809,6 @@ static ssize_t attr_orise_lcdoff(struct device *dev,
       */
     return 0;
 }
-/*OPPO Neal modify end*/
 static ssize_t attr_orise_rda_bkl(struct device *dev,
                                   struct device_attribute *attr, char *buf)
 {
@@ -868,7 +829,6 @@ static ssize_t attr_orise_dispswitch(struct device *dev,
     return 0;
 }
 
-/*OPPO Neal add 2013-8-13 for cabc*/
 #ifdef PANEL_CABC
 static DEFINE_MUTEX(cabc_mutex);
 static int set_cabc(int level)
@@ -879,7 +839,6 @@ static int set_cabc(int level)
     set_backlight_pwm(1);
 
     mutex_lock(&cabc_mutex);
-    /*OPPO 2013-10-11 zhzhyon Add for reason*/
     if(flag_lcd_off == true)
     {
         printk(KERN_INFO "lcd is off,don't allow to set cabc\n");
@@ -887,11 +846,9 @@ static int set_cabc(int level)
         mutex_unlock(&cabc_mutex);
         return 0;
     }
-    /*OPPO 2013-10-11 zhzhyon Add end*/
 
     mipi_dsi_clk_cfg(1);
     mipi_set_tx_power_mode(0);
-    /*OPPO 2013-10-18 zhzhyon Add for reason*/
 #ifdef PANEL_SRE
     if(level && (sre_level != sre_mode) && sre_level)
     {
@@ -900,7 +857,6 @@ static int set_cabc(int level)
         sre_mode = SRE_HIGH_MODE;
     }
 #endif
-    /*OPPO 2013-10-18 zhzhyon Add end*/
 
     switch(level)
     {
@@ -910,11 +866,9 @@ static int set_cabc(int level)
                              */
             set_backlight_pwm(0);
             cabc_mode = CABC_CLOSE;
-            /*OPPO 2013-10-18 zhzhyon Add for reason*/
 #ifdef PANEL_SRE
             sre_mode = SRE_CLOSE;
 #endif
-            /*OPPO 2013-10-18 zhzhyon Add end*/
             break;
         case 1:
             mipi_dsi_cmds_tx(&orise_tx_buf, cabc_user_interface_image_sequence,
@@ -943,7 +897,6 @@ static int set_cabc(int level)
 
 }
 
-/*OPPO 2013-09-27 zhzhyon Add for reason*/
 static ssize_t attr_orise_get_cabc(struct device *dev,
                                    struct device_attribute *attr, char *buf)
 {
@@ -952,7 +905,6 @@ static ssize_t attr_orise_get_cabc(struct device *dev,
 
     return sprintf(buf, "%d", cabc_mode);
 }
-/*OPPO 2013-09-27 zhzhyon Add end*/
 static ssize_t attr_orise_cabc(struct device *dev,
                                struct device_attribute *attr,
                                const char *buf, size_t count)
@@ -963,7 +915,6 @@ static ssize_t attr_orise_cabc(struct device *dev,
     return count;
 }
 #endif
-/*OPPO Neal add  end 2013-8-13*/
 extern int lm3630_pwm_readout(void);
 #ifdef PANEL_TEST
 static int get_sign(int sign)
@@ -1002,14 +953,12 @@ static ssize_t attr_test_out(struct device *dev,
 }
 #endif
 
-/*OPPO 2013-09-11 zhzhyon Add for SRE*/
 #ifdef PANEL_SRE
 static int set_sre(int level)
 {
     int ret = 0;
     pr_info("%s sre level = %d\n",__func__,level);
     mutex_lock(&sre_mutex);
-    /*OPPO 2013-10-18 zhzhyon Add for reason*/
 #ifdef PANEL_CABC
     if((cabc_mode == CABC_CLOSE) && level)
     {
@@ -1019,8 +968,6 @@ static int set_sre(int level)
         return 0;
     }
 #endif
-    /*OPPO 2013-10-18 zhzhyon Add end*/
-    /*OPPO 2013-10-11 zhzhyon Add for reason*/
     if(flag_lcd_off == true)
     {
         printk(KERN_INFO "lcd is off,don't allow to set sre\n");
@@ -1028,7 +975,6 @@ static int set_sre(int level)
         mutex_unlock(&sre_mutex);
         return 0;
     }
-    /*OPPO 2013-10-11 zhzhyon Add end*/
     mipi_dsi_clk_cfg(1);
     mipi_set_tx_power_mode(0);
     switch(level)
@@ -1098,7 +1044,6 @@ static ssize_t attr_orise_sre(struct device *dev,
     return count;
 }
 #endif
-/*OPPO 2013-09-11 zhzhyon Add end*/
 
 static DEVICE_ATTR(reinit, S_IRUGO , attr_orise_reinit, NULL);
 static DEVICE_ATTR(lcdon, S_IRUGO , attr_orise_lcdon, NULL);
@@ -1106,9 +1051,7 @@ static DEVICE_ATTR(lcdoff, S_IRUGO , attr_orise_lcdoff, NULL);
 static DEVICE_ATTR(backlight, S_IRUGO , attr_orise_rda_bkl, NULL);
 static DEVICE_ATTR(dispswitch, S_IRUGO , attr_orise_dispswitch, NULL);
 #ifdef PANEL_CABC
-/*OPPO 2013-09-27 zhzhyon Modify for reason*/
 static DEVICE_ATTR(cabc, 0644 , attr_orise_get_cabc, attr_orise_cabc);
-/*OPPO 2013-09-27 zhzhyon Modify end*/
 #endif
 #ifdef PANEL_TEST
 static DEVICE_ATTR(test, 0644 , attr_test_in, attr_test_out);
@@ -1157,13 +1100,11 @@ static void techeck_work_func( struct work_struct *work )
         printk("huyu------%s: lcd is off ing ! don't do this ! te_count = %d \n",__func__,te_count);
         return ;
     }
-    /* OPPO 2013-09-23 gousj Modify begin for TE count adjusting */
 #ifndef CONFIG_MACH_N1
     if(te_count < 80)
 #else
     if(te_count < 50)
 #endif
-        /* OPPO 2013-09-23 gousj Modify end */
     {
         printk("huyu------%s: lcd resetting ! te_count = %d \n",__func__,te_count);
         printk("irq_state=%d\n", irq_state);
@@ -1269,7 +1210,6 @@ static int __devinit mipi_orise_lcd_probe(struct platform_device *pdev)
         return rc;
     }
 
-    /* OPPO 2013-03-07 zhengzk Add begin for reason */
     display_switch.name = "dispswitch";
 
     rc = switch_dev_register(&display_switch);
@@ -1278,7 +1218,6 @@ static int __devinit mipi_orise_lcd_probe(struct platform_device *pdev)
         pr_err("Unable to register display switch device\n");
         return rc;
     }
-    /* OPPO 2013-03-07 zhengzk Add end */
 
     return 0;
 }

@@ -52,7 +52,6 @@ static int __init mipi_video_orise_720p_pt_init(void)
 	int rc = 0;
 	if (msm_fb_detect_client("mipi_video_orise_720p"))
 		return 0;
-/*OPPO Neal add for sharp panel*/
 	 rc = gpio_request(LCD_DIS_GPIO, "LCD_DIS_GPIO");
         if (rc < 0)
         {
@@ -64,7 +63,6 @@ static int __init mipi_video_orise_720p_pt_init(void)
 	 dis = gpio_get_value(LCD_DIS_GPIO);
 	 printk(KERN_ERR "mipi_orise_lcd_probe Neal ******************************: dis = %d\n", dis);
 	 gpio_free(LCD_DIS_GPIO);
-/*OPPO Neal add end*/
 
 	pinfo.xres = 1080;
 	pinfo.yres = 1920;
@@ -76,9 +74,6 @@ static int __init mipi_video_orise_720p_pt_init(void)
 	pinfo.wait_cycle = 0;
 	pinfo.bpp = 24;
 #if 1		
-	/* OPPO 2013-03-07 Gousj Modify begin for solve the issue of lack of virtical pixel. */	
-		//Gousj modified  h_back_porch  from 100 to 101 	
-	/*OPPO Neal add for sharp panel*/
 
 	if(get_panel_info() == 0)
 		{
@@ -93,23 +88,17 @@ static int __init mipi_video_orise_720p_pt_init(void)
 			pinfo.lcdc.v_back_porch = 4;	//must > 4,Otherwise,it will increase the burden of clock	huyu
 			printk(KERN_ERR "%s: register jdi device!\n", __func__);
 		}	
-	/*OPPO Neal add end*/
 
 		pinfo.lcdc.h_front_porch = 130;//120		
 		pinfo.lcdc.h_pulse_width = 8;		
-		//Modified by Gousj on date 2013-3-4 ,the value of v_back_porch decreased from 5 to 4 .		
 				
 		pinfo.lcdc.v_front_porch = 3;		
-		//Modified by Gousj on date 2013-3-4 ,the value of v_pulse_width decreased from 2 to 1 .		
 		pinfo.lcdc.v_pulse_width = 1;//2;		
-	/* OPPO 2013-03-07 Gousj Modify end */
 #endif
 	pinfo.lcdc.border_clr = 0;	/* blk */
 	pinfo.lcdc.underflow_clr = 0xff;	/* blue */
 	pinfo.lcdc.hsync_skew = 0;
-	/* OPPO 2013-04-22 Gousj Modify for black light not light */
 	pinfo.bl_max = 127;
-	/* OPPO 2013-04-022 Gousj Modify end */
 	pinfo.bl_min = 1;
 	pinfo.fb_num = 2;
 
@@ -119,7 +108,9 @@ static int __init mipi_video_orise_720p_pt_init(void)
 	pinfo.mipi.hbp_power_stop = FALSE;
 	pinfo.mipi.hsa_power_stop = FALSE;
 	pinfo.mipi.eof_bllp_power_stop = FALSE;
-	pinfo.mipi.bllp_power_stop = FALSE;
+#ifdef CONFIG_MACH_N1
+	pinfo.mipi.bllp_power_stop = TRUE;
+#endif
 	pinfo.mipi.traffic_mode = DSI_BURST_MODE;
 	pinfo.mipi.dst_format = DSI_VIDEO_DST_FORMAT_RGB888;
 	pinfo.mipi.vc = 0;
