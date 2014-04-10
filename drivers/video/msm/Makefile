@@ -1,6 +1,5 @@
 # TODO: enable CFLAGS again.
-CFLAGS_mdp4_overlay.o += -fno-aggressive-loop-optimizations \
-			 -Wno-implicit-function-declaration
+CFLAGS_mdp4_overlay.o += -Wno-implicit-function-declaration
 CFLAGS_mdp.o += -Wno-implicit-function-declaration
 CFLAGS_msm_fb.o += -Wno-unused-function
 CFLAGS_mdp_debugfs.o += -Wno-unused-function
