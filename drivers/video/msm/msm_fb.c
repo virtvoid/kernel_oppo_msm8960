@@ -2561,6 +2561,28 @@ static void msm_fb_commit_wq_handler(struct work_struct *work)
 	struct fb_var_screeninfo *var;
 	struct fb_info *info;
 	struct msm_fb_backup_type *fb_backup;
+
+	mfd = container_of(work, struct msm_fb_data_type, commit_work);
+	fb_backup = (struct msm_fb_backup_type *)mfd->msm_fb_backup;
+	info = &fb_backup->info;
+	if (fb_backup->disp_commit.flags &
+		MDP_DISPLAY_COMMIT_OVERLAY) {
+			mdp4_overlay_commit(info);
+	} else {
+		var = &fb_backup->disp_commit.var;
+		msm_fb_pan_display_sub(var, info);
+	}
+	mutex_lock(&mfd->sync_mutex);
+	mfd->is_committing = 0;
+	complete_all(&mfd->commit_comp);
+	mutex_unlock(&mfd->sync_mutex);
+
+#ifdef CONFIG_MACH_APQ8064_FIND5
+	if (unset_bl_level && !bl_updated)
+#else
+	if (!bl_updated)
+#endif
+		schedule_delayed_work(&mfd->backlight_worker,
 	u32 overlay_commit = false;
 
 	mfd = container_of(work, struct msm_fb_data_type, commit_work);

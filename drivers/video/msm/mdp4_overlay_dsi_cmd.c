@@ -1266,7 +1266,15 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 	}
 
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
+<<<<<<< HEAD
+<<<<<<< HEAD
+	mdp4_dsi_cmd_pipe_commit(cndx, 0);
+=======
 	mdp4_dsi_cmd_pipe_commit(cndx, 1, NULL);
+>>>>>>> 668c9b4... msm: display: Revert Oppo changes to mdp4_overlay_dsi_cmd
+=======
+	mdp4_dsi_cmd_pipe_commit(cndx, 1, NULL);
+>>>>>>> b3f083a... msm: display: command mode panel release fence
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
 
