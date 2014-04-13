@@ -1090,28 +1090,6 @@ static struct msm_gpiomux_config mdm_i2s_configs[] __initdata = {
 	},
 };
 
-static struct gpiomux_setting mdp_vsync_suspend_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
-static struct gpiomux_setting mdp_vsync_active_cfg = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
-static struct msm_gpiomux_config msm8960_mdp_vsync_configs[] __initdata = {
-	{
-		.gpio = 0,
-		.settings = {
-				[GPIOMUX_ACTIVE] = &mdp_vsync_active_cfg,
-				[GPIOMUX_SUSPENDED] = &mdp_vsync_suspend_cfg,
-			},
-	}
-};
-
 static struct gpiomux_setting mi2s_act_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
