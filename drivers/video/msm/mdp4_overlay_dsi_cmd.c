@@ -415,17 +415,8 @@ int mdp4_dsi_cmd_pipe_commit(int cndx, int wait)
 
 	mdp4_stat.overlay_commit[pipe->mixer_num]++;
 
-	if (wait) {
-		if (release_busy) {
-			msm_fb_release_busy(vctrl->mfd);
-			*release_busy = false;
-			mutex_unlock(&vctrl->mfd->dma->ov_mutex);
-		}
-		if (pipe->ov_blt_addr)
-			mdp4_dsi_cmd_wait4ov(0);
-		else
-			mdp4_dsi_cmd_wait4dmap(0);
-	}
+	if (wait)
+		mdp4_dsi_cmd_wait4vsync(0);
 
 	return cnt;
 }
@@ -538,7 +529,6 @@ static void mdp4_dsi_cmd_wait4ov(int cndx)
  * primary_rdptr_isr:
  * called from interrupt context
  */
-
 static void primary_rdptr_isr(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
@@ -1266,11 +1256,7 @@ void mdp4_dsi_cmd_overlay(struct msm_fb_data_type *mfd)
 	}
 
 	mdp4_overlay_mdp_perf_upd(mfd, 1);
-<<<<<<< HEAD
 	mdp4_dsi_cmd_pipe_commit(cndx, 0);
-=======
-	mdp4_dsi_cmd_pipe_commit(cndx, 1, NULL);
->>>>>>> 668c9b4... msm: display: Revert Oppo changes to mdp4_overlay_dsi_cmd
 	mdp4_overlay_mdp_perf_upd(mfd, 0);
 	mutex_unlock(&mfd->dma->ov_mutex);
 
