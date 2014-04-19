@@ -460,9 +460,6 @@ static int mipi_orise_lcd_on(struct platform_device *pdev)
         {
             mipi_dsi_cmds_tx(&orise_tx_buf, cmd_mipi_initial_sequence,
                              ARRAY_SIZE(cmd_mipi_initial_sequence));
-            printk("huyu-------%s: lcd ESD reset initial!\n",__func__);
-            mdelay(130);
-            //printk("huyu-------%s: lcd cmd_brightness_setting!\n",__func__);
             mipi_dsi_cmds_tx(&orise_tx_buf, cmd_brightness_setting,
                              ARRAY_SIZE(cmd_brightness_setting));
             spin_lock_irqsave(&te_count_lock, flags);
@@ -479,12 +476,8 @@ static int mipi_orise_lcd_on(struct platform_device *pdev)
     }
     else
     {
-        //printk("huyu-------%s: lcd initial!\n",__func__);
         mipi_dsi_cmds_tx(&orise_tx_buf, cmd_mipi_initial_sequence,
                          ARRAY_SIZE(cmd_mipi_initial_sequence));
-        //printk("huyu-------%s: lcd initial!\n",__func__);
-        mdelay(130);
-        //printk("huyu-------%s: lcd cmd_brightness_setting!\n",__func__);
         mipi_dsi_cmds_tx(&orise_tx_buf, cmd_brightness_setting,
                          ARRAY_SIZE(cmd_brightness_setting));
         flag_lcd_resume = true;
@@ -511,15 +504,13 @@ static int mipi_orise_lcd_off(struct platform_device *pdev)
 
     mipi_dsi_cmds_tx(&orise_tx_buf, cmd_sleep_and_off,
                      ARRAY_SIZE(cmd_sleep_and_off));
-    mdelay(60); //delay more than 3 frames
 
     mipi_dsi_cmds_tx(&orise_tx_buf, cmd_mipi_off_sequence,
                      ARRAY_SIZE(cmd_mipi_off_sequence));
 #endif
-    mdelay(5);
 
     cancel_delayed_work_sync(&techeck_work);
-    mdelay(5);
+    mdelay(6);
 
     irq_state--;
     disable_irq(irq);
@@ -559,6 +550,8 @@ static void mipi_orise_set_backlight(struct msm_fb_data_type *mfd)
     globle_bkl = bl_level;
 }
 
+extern int mipi_dsi_panel_power(int on);
+
 static ssize_t attr_orise_reinit(struct device *dev,
                                  struct device_attribute *attr, char *buf)
 {
@@ -584,9 +577,7 @@ static ssize_t attr_orise_lcdon(struct device *dev,
         return 0;
 
     flag_lcd_node_onoff = false;
-    prevent_suspend();
-    mipi_dsi_on(g_mdp_dev);
-    allow_suspend();
+    mipi_dsi_panel_power(1);
 
     return 0;
 }
@@ -599,10 +590,8 @@ static ssize_t attr_orise_lcdoff(struct device *dev,
         return 0;
 
     flag_lcd_node_onoff = true;
-    prevent_suspend();
-    mipi_dsi_off(g_mdp_dev);
-    allow_suspend();
 
+    mipi_dsi_panel_power(0);
     return 0;
 }
 
