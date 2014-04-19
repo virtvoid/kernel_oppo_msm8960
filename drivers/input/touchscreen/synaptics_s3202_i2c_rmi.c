@@ -152,7 +152,7 @@ extern int display_rle_file(char *filename);
 #define TS_INFO    3
 #define TS_DEBUG   4
 #define TS_TRACE   5
-static int syna_log_level = TS_DEBUG;
+static int syna_log_level = TS_INFO;
 #define print_ts(level, ...) \
 	do { \
 		if (syna_log_level >= (level)) \
@@ -484,8 +484,6 @@ END_TP_TEST:
 	print_ts(TS_DEBUG, "Tp test finish!\n");
 
 	num_read_chars += sprintf(&(buf[num_read_chars]), "%d error(s). %s\n", error_count, error_count?"":"All test passed.");
-	//ret = i2c_smbus_write_byte_data(ts_g->client, 0xff, 0x00); 
-	//ret = i2c_smbus_write_byte_data(ts_g->client,F01_RMI_CMD_BASE,0X01);
 	synaptics_i2c_byte_write(syna_ts_data, F01_CMD_BASE_ADDR, 0x01);
 
 	msleep(150);
@@ -1312,13 +1310,12 @@ static void synaptics_ts_work_func(struct work_struct *work)
             (1 == atomic_read(&ts->camera_enable)) ||(1 == atomic_read(&ts->music_enable))) {
 			ret= wait_event_timeout(ts->wait_i2c_ready,
 					ts->i2c_ready,
-					msecs_to_jiffies(1000));
+					msecs_to_jiffies(500));
 			if (ret == 0) {
 				print_ts(TS_WARNING, "wait i2c ready timeout\n");
 				goto work_func_end;
 			}
-				
-			//mdelay(50);
+
 		} else {
 			goto work_func_end;
 		}
@@ -1357,22 +1354,14 @@ static void synaptics_ts_work_func(struct work_struct *work)
 	{
 		if(buf_status[0] != 0)
 		{
-#ifndef CONFIG_MACH_APQ8064_FIND5
-			print_ts(TS_WARNING, "TP interrupt register status unnormal , software reset !\n");
-			synaptics_software_reset(ts);
-#else
 			print_ts(TS_WARNING, "TP interrupt register status unnormal , hardware reset !\n");
 			synaptics_hardware_reset(ts);			
-#endif
-/* OPPO 2013-05-02 huanggd Add begin for double tap*/			
+
 #if SUPPORT_DOUBLE_TAP
 			if (ts->is_tp_suspended
 				&&((atomic_read(&ts->double_tap_enable)) || (atomic_read(&ts->flashlight_enable)) ||
 				   (atomic_read(&ts->camera_enable)) || (atomic_read(&ts->music_enable)))) {
 
-#ifdef CONFIG_MACH_APQ8064_FIND5
-				print_ts(TS_WARNING, "reinit double tp after hardware reset !\n");
-#endif
 				synaptics_set_int_mask(ts, 0);
 				synaptics_set_report_mode(ts, 0x04);
 				enable_irq_wake(ts->client->irq);
@@ -1395,8 +1384,6 @@ static void synaptics_ts_work_func(struct work_struct *work)
 
 		ret = i2c_transfer(ts->client->adapter, msg, 2);
 		if (ret < 0) 
-		//ret = synaptics_i2c_block_read(ts, ts->fn11_desc.data_base_addr, sizeof(ts->finger_data), ts->finger_data);
-		//if (ret != sizeof(ts->finger_data))
 		{
 			print_ts(TS_ERROR, KERN_ERR "[%s]: read finger data failed.\n", __func__);
 		}
@@ -1454,7 +1441,7 @@ static void synaptics_ts_work_func(struct work_struct *work)
 
 				}
 			}
-			else//if (finger_pressed == 0) /*如果没有手指按下，上报抬起事件*/
+			else
 			{
 				input_point_num = 0;
 				input_mt_sync(ts->input_dev);
@@ -1484,7 +1471,7 @@ static void synaptics_ts_work_func(struct work_struct *work)
 					atomic_inc(&ts->double_tap_number);
 				}
 			}
-/* OPPO 2013-08-16 ranfei Add begin for reason */
+
             if (ts->is_tp_suspended && 1 == atomic_read(&ts->camera_enable))
 			{
                 if (double_tap & 0x08)
@@ -1550,7 +1537,7 @@ work_func_end:
 	
 	if (ts->use_irq)
 		enable_irq(ts->client->irq);
-/* OPPO 2013-05-02 huanggd Add begin for double tap*/	
+
 #if SUPPORT_DOUBLE_TAP	
 	if (ts->is_tp_suspended && (atomic_read(&ts->double_tap_enable) || atomic_read(&ts->flashlight_enable) ||
                                 atomic_read(&ts->camera_enable) || atomic_read(&ts->music_enable))) {
@@ -1562,7 +1549,6 @@ work_func_end:
 	}
 	
 #endif	
-/* OPPO 2013-05-02 huanggd Add end*/
 
 	up(&synaptics_sem);
 }
@@ -1570,7 +1556,6 @@ work_func_end:
 static enum hrtimer_restart synaptics_ts_timer_func(struct hrtimer *timer)
 {
 	struct synaptics_ts_data *ts = container_of(timer, struct synaptics_ts_data, timer);
-	/* printk("synaptics_ts_timer_func\n"); */
 
 	queue_work(synaptics_wq, &ts->work);
 
@@ -1581,20 +1566,16 @@ static enum hrtimer_restart synaptics_ts_timer_func(struct hrtimer *timer)
 static irqreturn_t synaptics_ts_irq_handler(int irq, void *dev_id)
 {
 	struct synaptics_ts_data *ts = dev_id;
-
-	/* printk("synaptics_ts_irq_handler\n"); */
 	disable_irq_nosync(ts->client->irq);
 	queue_work(synaptics_wq, &ts->work);
-/* OPPO 2013-05-02 huanggd Add begin for double tap*/	
+
 #if SUPPORT_DOUBLE_TAP	
 	if (ts->is_tp_suspended
 		&& (atomic_read(&ts->double_tap_enable) || atomic_read(&ts->flashlight_enable) ||
 		    atomic_read(&ts->camera_enable) || atomic_read(&ts->music_enable))) {
 		wake_lock_timeout(&ts->double_wake_lock, HZ);
-		//print_ts(TS_DEBUG, KERN_INFO "[%s]  \n", __func__);
 	}
 #endif
-/* OPPO 2013-05-02 huanggd Add end*/
 	return IRQ_HANDLED;
 }
 
@@ -2408,7 +2389,7 @@ static int synaptics_ts_probe(
 	struct synaptics_i2c_rmi_platform_data *pdata;
 	unsigned long irqflags;
 	int force_update;
-	print_ts(TS_INFO, "huqiao_synaptics_ts_probe\n");
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		print_ts(TS_ERROR, KERN_ERR "synaptics_ts_probe: need I2C_FUNC_I2C\n");
 		ret = -ENODEV;
@@ -2442,12 +2423,8 @@ static int synaptics_ts_probe(
 		}
 	}*/
 	
-/* OPPO 2013-09-22 ranfei Add begin for 在AT，WLAN和RF模式不注册触摸屏 */
-#ifdef CONFIG_MACH_APQ8064_FIND5
     if(get_boot_mode() == MSM_BOOT_MODE__FACTORY)
         goto err_detect_failed;;
-#endif
-/* OPPO 2013-09-22 ranfei Add end */
 
 	ts->is_tp_suspended = 0;
 	ts->report_mode = 0x00;
@@ -2478,19 +2455,16 @@ firmware_update:
 		const unsigned char* fw_update_data = NULL;
 		if (ts->vendor_id == TP_VENDOR_TRULY)
 		{
-			print_ts(TS_INFO, "huqiao_TP_VENDOR_TRULY\n");
 			fw_update_version = FIRMWARE_TRULY_VERSION;
 			fw_update_data = Syna_Firmware_Data_Truly;
 		}
 		else if (ts->vendor_id == TP_VENDOR_WINTEK)
 		{
-			print_ts(TS_INFO, "huqiao_TP_TP_VENDOR_WINTEK\n");
 			fw_update_version = FIRMWARE_WINTEK_VERSION;
 			fw_update_data = Syna_Firmware_Data_Wintek;
 		}
 		else if (ts->vendor_id == TP_VENDOR_TPK)
 		{
-			print_ts(TS_INFO, "huqiao_TP_VENDOR_TPK\n");
 			fw_update_version = FIRMWARE_TPK_VERSION;
 			fw_update_data = Syna_Firmware_Data_TPK;
 		}
@@ -2619,13 +2593,9 @@ firmware_update:
 	atomic_set(&ts->double_tap_number, 0);
     /*ranfei modify for N1 发布会临时打开这四个开关*/
 	atomic_set(&ts->double_tap_enable, 1);   
-//#ifdef VENDER_EDIT
-//lile@EXP.driver.touchscreen 2013-11-20 modify for set default value 0
     atomic_set(&ts->flashlight_enable, 0);
     atomic_set(&ts->camera_enable, 0);
     atomic_set(&ts->music_enable, 0);
-//lile@EXP.driver.touchscreen 2013-11-20 end
-//#endif VENDER_EDIT
 #endif
 #ifdef SUPPORT_GLOVES_MODE
     atomic_set(&ts->glove_mode_enable, 0);
@@ -2706,7 +2676,6 @@ err_detect_failed:
 #if SUPPORT_DOUBLE_TAP	
 	wake_lock_destroy(&ts->double_wake_lock);
 #endif
-//err_power_failed:
 	kfree(ts);
 err_alloc_data_failed:
 err_check_functionality_failed:
@@ -2773,9 +2742,6 @@ static int synaptics_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 		disable_irq(client->irq);
 	else
 		hrtimer_cancel(&ts->timer);
-	//ret = cancel_work_sync(&ts->work);
-	//if (ret && ts->use_irq) /* if work was pending disable-count is now 2 */
-	//	enable_irq(client->irq);
 	ret = synaptics_set_int_mask(ts, 0); /* disable interrupt */
 	if (ret < 0)
 		print_ts(TS_ERROR, KERN_ERR "%s: can not disable interrupt\n", __func__);
@@ -2804,13 +2770,11 @@ static int synaptics_ts_resume(struct i2c_client *client)
 	if (atomic_read(&ts->double_tap_enable) || atomic_read(&ts->flashlight_enable) ||
         atomic_read(&ts->camera_enable) || atomic_read(&ts->music_enable))
 	{
-/* OPPO 2013-05-02 huanggd Add begin for double tap*/		
 		if (ts->power) {
 			ret = ts->power(1);
 			if (ret < 0)
 				print_ts(TS_ERROR, KERN_ERR "synaptics_ts_resume power on failed\n");
 		}
-/* OPPO 2013-05-02 huanggd Add end*/			
 		synaptics_set_int_mask(ts, 0);
 		synaptics_init_panel(ts);
 		synaptics_set_report_mode(ts, ts->report_mode);
