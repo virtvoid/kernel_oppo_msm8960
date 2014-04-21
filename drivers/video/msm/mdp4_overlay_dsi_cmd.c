@@ -538,7 +538,6 @@ static void mdp4_dsi_cmd_wait4ov(int cndx)
  * primary_rdptr_isr:
  * called from interrupt context
  */
-
 static void primary_rdptr_isr(int cndx)
 {
 	struct vsycn_ctrl *vctrl;
