@@ -5473,12 +5473,25 @@ void __cfg80211_send_event_skb(struct sk_buff *skb, gfp_t gfp)
 	nla_nest_end(skb, data);
 	genlmsg_end(skb, hdr);
 
-	if (data->nla_type == NL80211_ATTR_VENDOR_DATA)
-		genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), skb, 0,
-			nl80211_vendor_mcgrp.id, gfp);
-	else
-		genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), skb, 0,
-			nl80211_testmode_mcgrp.id, gfp);
+struct sk_buff *cfg80211_testmode_alloc_event_skb(struct wiphy *wiphy,
+						  int approxlen, gfp_t gfp)
+{
+	struct cfg80211_registered_device *rdev = wiphy_to_dev(wiphy);
+
+	return __cfg80211_testmode_alloc_skb(rdev, approxlen, 0, 0, gfp);
+}
+EXPORT_SYMBOL(cfg80211_testmode_alloc_event_skb);
+
+void cfg80211_testmode_event(struct sk_buff *skb, gfp_t gfp)
+{
+	struct cfg80211_registered_device *rdev = ((void **)skb->cb)[0];
+	void *hdr = ((void **)skb->cb)[1];
+	struct nlattr *data = ((void **)skb->cb)[2];
+
+	nla_nest_end(skb, data);
+	genlmsg_end(skb, hdr);
+	genlmsg_multicast_netns(wiphy_net(&rdev->wiphy), skb, 0,
+				nl80211_testmode_mcgrp.id, gfp);
 }
 EXPORT_SYMBOL(__cfg80211_send_event_skb);
 #endif
