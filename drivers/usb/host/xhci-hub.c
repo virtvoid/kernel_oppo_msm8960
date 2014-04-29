@@ -1064,6 +1064,7 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 		t1 = xhci_port_state_to_neutral(t1);
 		if (t1 != t2) {
 			xhci_writel(xhci, t2, port_array[port_index]);
+
 			if (xhci->quirks & XHCI_PORTSC_DELAY)
 				ndelay(100);
 		}
