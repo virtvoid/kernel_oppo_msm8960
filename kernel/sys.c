@@ -377,6 +377,7 @@ void kernel_restart(char *cmd)
 #endif
 	/*OPPO 2013-10-23 zhzhyon Add end*/
 	kernel_restart_prepare(cmd);
+	disable_nonboot_cpus();
 	if (!cmd)
 		printk(KERN_EMERG "Restarting system.\n");
 	else
