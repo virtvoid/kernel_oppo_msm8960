@@ -2488,9 +2488,6 @@ static void tabla_codec_pause_hs_polling(struct snd_soc_codec *codec)
 		return;
 	}
 
-	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.ctl_reg, 0x01, 0x01);
-	msleep(20);
-	snd_soc_update_bits(codec, tabla->mbhc_bias_regs.ctl_reg, 0x01, 0x00);
 	snd_soc_update_bits(codec, TABLA_A_CDC_MBHC_CLK_CTL, 0x8, 0x8);
 	pr_debug("%s: leave\n", __func__);
 }
@@ -7241,7 +7238,7 @@ tabla_codec_get_plug_type(struct snd_soc_codec *codec, bool highhph)
 		mic_mv[i] = scaled;
 	}
 
-	for (i = 0; (plug_type[0] != PLUG_TYPE_GND_MIC_SWAP && !inval) &&
+	for (i = 0; 
 		     i < num_det; i++) {
 		/*
 		 * If we are here, means none of the all
@@ -8063,9 +8060,6 @@ static void tabla_hs_gpio_handler(struct snd_soc_codec *codec)
 {
 	bool insert;
 	struct tabla_priv *tabla = snd_soc_codec_get_drvdata(codec);
-#ifndef CONFIG_MACH_APQ8064_FIND5
-	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
-#endif
 	bool is_removed = false;
 
 	pr_debug("%s: enter\n", __func__);
@@ -8100,16 +8094,13 @@ static void tabla_hs_gpio_handler(struct snd_soc_codec *codec)
 	usleep_range(TABLA_GPIO_IRQ_DEBOUNCE_TIME_US,
 		     TABLA_GPIO_IRQ_DEBOUNCE_TIME_US);
 
-	wcd9xxx_nested_irq_lock(core);
 	TABLA_ACQUIRE_LOCK(tabla->codec_resource_lock);
 #endif
 	/* cancel pending button press */
 	if (tabla_cancel_btn_work(tabla))
 		pr_debug("%s: button press is canceled\n", __func__);
-#ifndef CONFIG_MACH_APQ8064_FIND5
-	insert = (gpio_get_value_cansleep(tabla->mbhc_cfg.gpio) ==
-		  tabla->mbhc_cfg.gpio_level_insert);
-#endif
+
+	
 	if ((tabla->current_plug == PLUG_TYPE_NONE) && insert) {
 		tabla->lpi_enabled = false;
 		wmb();
@@ -8182,9 +8173,6 @@ static void tabla_hs_gpio_handler(struct snd_soc_codec *codec)
 
 	tabla->in_gpio_handler = false;
 	TABLA_RELEASE_LOCK(tabla->codec_resource_lock);
-#ifndef CONFIG_MACH_APQ8064_FIND5
-	wcd9xxx_nested_irq_unlock(core);
-#endif
 	pr_debug("%s: leave\n", __func__);
 }
 
