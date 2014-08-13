@@ -1,7 +1,7 @@
 VERSION = 3
 PATCHLEVEL = 4
-SUBLEVEL = 88
-EXTRAVERSION =
+SUBLEVEL = 1
+EXTRAVERSION = -void
 NAME = Saber-toothed Squirrel
 
 # *EOS KERNEL TWEAKS DOCUMENTATION*
@@ -377,7 +377,7 @@ AFLAGS_MODULE   =
 LDFLAGS_MODULE  =
 
 ifeq ($(EOS),2)
-CFLAGS_KERNEL	= -mtune=cortex-a9 -mfpu=vfpv3-d16 -ftree-vectorize -mfloat-abi=softfp -ffast-math -fsingle-precision-constant -marm --param l2-cache-size=1024 -funswitch-loops
+CFLAGS_KERNEL	= -mtune=cortex-a9 -mfpu=vfpv3-d16 -ftree-vectorize -mfloat-abi=softfp -ffast-math -fsingle-precision-constant -marm --param l2-cache-size=1024 -funswitch-loops -Wframe-larger-than=2048
 endif
 
 ifeq ($(EOS),1)
