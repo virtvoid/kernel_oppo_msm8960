@@ -222,17 +222,17 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.pwrlevel = {
 		{
 			.gpu_freq = 487500000,
-			.bus_freq = 4,
+			.bus_freq = 5,
 			.io_fraction = 0,
 		},
 		{
 			.gpu_freq = 384000000,
-			.bus_freq = 3,
+			.bus_freq = 4,
 			.io_fraction = 33,
 		},
 	        {
 			.gpu_freq = 266667000,
-			.bus_freq = 2,
+			.bus_freq = 3,
 			.io_fraction = 100,
 		},
 		{
