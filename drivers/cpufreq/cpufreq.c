@@ -681,6 +681,23 @@ static ssize_t store_vdd_levels(struct kobject *a, struct attribute *b, const ch
 
 #endif	/* CONFIG_CPU_VOLTAGE_TABLE */
 
+extern ssize_t get_gpu_vdd_levels_str(char *buf);
+extern void set_gpu_vdd_levels(int uv_tbl[]);
+
+ssize_t show_gpu_mv_table(struct cpufreq_policy *policy, char *buf)
+{
+        return get_gpu_vdd_levels_str(buf);
+}
+
+ssize_t store_gpu_mv_table(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+        unsigned int ret = -EINVAL;
+        unsigned int u[3];
+        ret = sscanf(buf, "%d %d %d", &u[0], &u[1], &u[2]);
+        set_gpu_vdd_levels(u);
+        return count;
+}
+
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
 cpufreq_freq_attr_ro(cpuinfo_max_freq);
@@ -696,6 +713,7 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
+cpufreq_freq_attr_rw(gpu_mv_table);
 #ifdef CONFIG_CPU_VOLTAGE_TABLE
 define_one_global_rw(vdd_levels);
 #endif
@@ -713,6 +731,7 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
+  &gpu_mv_table.attr,
 	NULL
 };
 
@@ -2031,7 +2050,6 @@ err_null_driver:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(cpufreq_register_driver);
-
 
 /**
  * cpufreq_unregister_driver - unregister the current CPUFreq driver
