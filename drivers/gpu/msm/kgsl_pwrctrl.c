@@ -901,9 +901,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	pwr->max_pwrlevel = 0;
 	pwr->min_pwrlevel = pdata->num_levels - 2;
 	pwr->thermal_pwrlevel = 0;
-
 	pwr->active_pwrlevel = pdata->init_level;
-	pwr->default_pwrlevel = pwr->min_pwrlevel;
+	pwr->default_pwrlevel = pdata->init_level;
+
 	for (i = 0; i < pdata->num_levels; i++) {
 		pwr->pwrlevels[i].gpu_freq =
 		(pdata->pwrlevel[i].gpu_freq > 0) ?
