@@ -1,17 +1,17 @@
 VERSION = 3
 PATCHLEVEL = 4
-SUBLEVEL = 2
-EXTRAVERSION = -void
+SUBLEVEL = 0
+EXTRAVERSION = -void3
 NAME = Saber-toothed Squirrel
 
 # *EOS KERNEL TWEAKS DOCUMENTATION*
 # EOS= variable defines the level of optimizations
 # you want to set during the compilation.
-# Use 0 for compiling without any optimizations at all.
-# Use 1 for a basic optimizations set.
-# Use 2 for an advanced optimizations set.
+# Use 0 for void optimizations :;
+# Use 1 for EOS basic optimizations set.
+# Use 2 for EOS advanced optimizations set.
 # NOTE: You MUST set this variable, else compiling will fail.
-EOS=2
+EOS=0
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -370,7 +370,7 @@ CFLAGS_MODULE	= -mtune=cortex-a9 -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -f
 endif
 
 ifeq ($(EOS),0)
-CFLAGS_MODULE	=
+CFLAGS_MODULE	= -O2 -mtune=cortex-a15 -ffast-math -fno-tree-vectorize -mfpu=vfpv4 -mfloat-abi=softfp -fmodulo-sched -fmodulo-sched-allow-regmoves -funswitch-loops -fpredictive-commoning -fgcse-after-reload -fsingle-precision-constant --param l2-cache-size=1024
 endif
 			
 AFLAGS_MODULE   =
@@ -385,7 +385,7 @@ CFLAGS_KERNEL	= -mtune=cortex-a9 -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -f
 endif
 
 ifeq ($(EOS),0)
-CFLAGS_KERNEL	=
+CFLAGS_KERNEL	= $(CFLAGS_MODULE)
 endif
 
 AFLAGS_KERNEL	=
