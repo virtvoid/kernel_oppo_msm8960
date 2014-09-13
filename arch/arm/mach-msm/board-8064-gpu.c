@@ -222,12 +222,12 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.pwrlevel = {
 		{
 			.gpu_freq = 457142000,
-			.bus_freq = 5,
+			.bus_freq = 4,
 			.io_fraction = 0,
 		},
 		{
 			.gpu_freq = 384000000,
-			.bus_freq = 4,
+			.bus_freq = 3,
 			.io_fraction = 33,
 		},
     {
@@ -246,9 +246,9 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 		},
 	},
 #ifndef CONFIG_MACH_APQ8064_FIND5
-	.init_level = 2,
+	.init_level = 3,
 #else
-	.init_level = 2,
+	.init_level = 3,
 #endif
 	.num_levels = 5,
 	.set_grp_async = NULL,
