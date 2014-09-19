@@ -272,8 +272,8 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	 * be changed independently. Each cpu is bound to
 	 * same frequency. Hence set the cpumask to all cpu.
 	 */
-	if (cpu_is_msm8625())
-		cpumask_setall(policy->cpus);
+	//if (cpu_is_msm8625())
+	//	cpumask_setall(policy->cpus);
 
 	if (cpufreq_frequency_table_cpuinfo(policy, table)) {
 #ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
@@ -296,7 +296,7 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 		return -EINVAL;
 	}
 
-	if (cur_freq != table[index].frequency) {
+	/*if (cur_freq != table[index].frequency) {
 		int ret = 0;
 		ret = acpuclk_set_rate(policy->cpu, table[index].frequency,
 				SETRATE_CPUFREQ);
@@ -305,7 +305,7 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 		pr_info("cpufreq: cpu%d init at %d switching to %d\n",
 				policy->cpu, cur_freq, table[index].frequency);
 		cur_freq = table[index].frequency;
-	}
+	}*/
 
 	policy->cur = cur_freq;
 
