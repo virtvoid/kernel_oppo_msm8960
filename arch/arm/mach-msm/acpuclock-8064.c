@@ -22,9 +22,6 @@
 #include "acpuclock.h"
 #include "acpuclock-krait.h"
 
-/* go for tighter L2 cache levels, higher max bandwith, together with a little undeclocking... :) */
-#define OC_OPTIMISTIC 1
-
 static struct hfpll_data hfpll_data __initdata = {
 	.mode_offset = 0x00,
 	.l_offset = 0x08,
@@ -171,7 +168,7 @@ static struct acpu_level tbl_nom[] __initdata = {
 };
 */
 
-#if OC_OPTIMISTIC
+#ifdef CONFIG_OC_VOID_OPTIMISTIC
 
 static struct acpu_level tbl_slow[] __initdata = {
 	{ 1, {   162000, HFPLL, 0, 0x0C }, L2(0),   900000 }, 

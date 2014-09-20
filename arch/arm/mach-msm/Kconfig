@@ -2642,4 +2642,11 @@ config CPU_VOLTAGE_TABLE
 	help
 	  Krait User Votlage Control
 
+config OC_VOID_OPTIMISTIC
+	bool "Go for tighter L2 cache levels, higher max bandwith, together with a little undeclocking."
+	default n
+	help
+          Go for tighter L2 cache levels, higher max bandwith, together
+	  with a little undeclocking.
+
 endif
