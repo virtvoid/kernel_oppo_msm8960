@@ -1,13 +1,13 @@
 VERSION = 3
 PATCHLEVEL = 4
 SUBLEVEL = 0
-EXTRAVERSION = -void4
+EXTRAVERSION = -void5
 NAME = Saber-toothed Squirrel
 
 # *EOS KERNEL TWEAKS DOCUMENTATION*
 # EOS= variable defines the level of optimizations
 # you want to set during the compilation.
-# Use 0 for void optimizations :;
+# Use 0 for void optimizations ;)
 # Use 1 for EOS basic optimizations set.
 # Use 2 for EOS advanced optimizations set.
 # NOTE: You MUST set this variable, else compiling will fail.
