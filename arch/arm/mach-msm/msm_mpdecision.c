@@ -284,33 +284,33 @@ static void msm_mpdec_work_thread(struct work_struct *work) {
 	case MSM_MPDEC_DOWN:
 		cpu = get_slowest_cpu();
 		if (cpu < nr_cpu_ids) {
-			if ((per_cpu(msm_mpdec_cpudata, cpu).online == true) && (cpu_online(cpu))) {
+			//if ((per_cpu(msm_mpdec_cpudata, cpu).online == true) && (cpu_online(cpu))) {
 #ifdef CONFIG_MSM_MPDEC_INPUTBOOST_CPUMIN
 				unboost_cpu(cpu);
 #endif
 				mpdec_cpu_down(cpu);
-			} else if (per_cpu(msm_mpdec_cpudata, cpu).online != cpu_online(cpu)) {
+			/*} else if (per_cpu(msm_mpdec_cpudata, cpu).online != cpu_online(cpu)) {
 				pr_info(MPDEC_TAG"CPU[%d] was controlled outside of mpdecision! | pausing [%d]ms\n",
 					cpu, msm_mpdec_tuners_ins.pause);
 				mpdec_paused_until = ktime_to_ms(ktime_get()) + msm_mpdec_tuners_ins.pause;
 				was_paused = true;
-			}
+			}*/
 		}
 		break;
 	case MSM_MPDEC_UP:
 		cpu = cpumask_next_zero(0, cpu_online_mask);
 		if (cpu < nr_cpu_ids) {
-			if ((per_cpu(msm_mpdec_cpudata, cpu).online == false) && (!cpu_online(cpu))) {
+			//if ((per_cpu(msm_mpdec_cpudata, cpu).online == false) && (!cpu_online(cpu))) {
 				mpdec_cpu_up(cpu);
 #ifdef CONFIG_MSM_MPDEC_INPUTBOOST_CPUMIN
 				unboost_cpu(cpu);
 #endif
-			} else if (per_cpu(msm_mpdec_cpudata, cpu).online != cpu_online(cpu)) {
+			/*} else if (per_cpu(msm_mpdec_cpudata, cpu).online != cpu_online(cpu)) {
 				pr_info(MPDEC_TAG"CPU[%d] was controlled outside of mpdecision! | pausing [%d]ms\n",
 					cpu, msm_mpdec_tuners_ins.pause);
 				mpdec_paused_until = ktime_to_ms(ktime_get()) + msm_mpdec_tuners_ins.pause;
 				was_paused = true;
-			}
+			}*/
 		}
 		break;
 	default:

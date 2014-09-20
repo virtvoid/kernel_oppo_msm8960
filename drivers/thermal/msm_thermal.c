@@ -39,17 +39,7 @@ struct msm_thermal_stat_data {
 static struct msm_thermal_stat_data msm_thermal_stats;
 
 static int enabled;
-static struct msm_thermal_data msm_thermal_info = {
-	.sensor_id = 5,
-	.poll_ms = DEFAULT_POLLING_MS,
-	.limit_temp_degC = 65,
-	.temp_hysteresis_degC = 10,
-	.freq_step = 4,
-	.freq_control_mask = 0xf,
-	.core_limit_temp_degC = 75,
-	.core_temp_hysteresis_degC = 10,
-	.core_control_mask = 0xe,
-};
+static struct msm_thermal_data msm_thermal_info;
 static uint32_t limited_max_freq_thermal = MSM_CPUFREQ_NO_LIMIT;
 static struct delayed_work check_temp_work;
 static struct workqueue_struct *intellithermal_wq;
