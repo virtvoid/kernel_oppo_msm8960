@@ -1,7 +1,7 @@
 VERSION = 3
 PATCHLEVEL = 4
 SUBLEVEL = 0
-EXTRAVERSION = -void5-safe
+EXTRAVERSION = -void5.2
 NAME = Saber-toothed Squirrel
 
 # *EOS KERNEL TWEAKS DOCUMENTATION*
@@ -370,7 +370,7 @@ CFLAGS_MODULE	= -mtune=cortex-a9 -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -f
 endif
 
 ifeq ($(EOS),0)
-CFLAGS_MODULE	= -O2 -mtune=cortex-a15 -ffast-math -fno-tree-vectorize -mfpu=vfpv4 -mfloat-abi=softfp -fmodulo-sched -fmodulo-sched-allow-regmoves -funswitch-loops -fpredictive-commoning -fgcse-after-reload -fsingle-precision-constant --param l2-cache-size=1024
+CFLAGS_MODULE	= -O2 -mtune=cortex-a15 -ffast-math -ftree-vectorize -mfpu=vfpv4 -mfloat-abi=softfp -fmodulo-sched -fmodulo-sched-allow-regmoves -funswitch-loops -fpredictive-commoning -fgcse-after-reload -fsingle-precision-constant --param l2-cache-size=1024
 endif
 			
 AFLAGS_MODULE   =

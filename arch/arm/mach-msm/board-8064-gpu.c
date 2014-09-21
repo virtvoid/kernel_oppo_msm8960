@@ -268,10 +268,15 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 			.bus_freq = 0,
 		},
 	},
+
 #ifndef CONFIG_MACH_APQ8064_FIND5
-	.init_level = 3,
+	.init_level = 1,
 #else
-	.init_level = 3,
+	#ifdef CONFIG_OC_VOID_OPTIMISTIC
+		.init_level = 3,
+	#else
+		.init_level = 2,
+	#endif
 #endif
 	.num_levels = 5,
 	.set_grp_async = NULL,
