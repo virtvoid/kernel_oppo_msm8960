@@ -17,6 +17,16 @@
 
 #ifdef CONFIG_CPU_FREQ_MSM
 
+struct cpu_freq {
+	uint32_t max;
+	uint32_t min;
+	uint32_t allowed_max;
+	uint32_t allowed_min;
+	uint32_t limits_init;
+};
+
+extern DEFINE_PER_CPU(struct cpu_freq, cpu_freq_info);
+
 /**
  * msm_cpufreq_set_freq_limit() - Set max/min freq limits on cpu
  *
@@ -31,9 +41,15 @@
  */
 extern int msm_cpufreq_set_freq_limits(
 		uint32_t cpu, uint32_t min, uint32_t max);
+		
+extern int msm_cpufreq_limits_init(void);
 #else
 static inline int msm_cpufreq_set_freq_limits(
 		uint32_t cpu, uint32_t min, uint32_t max)
+{
+	return -ENOSYS;
+}
+static inline int msm_cpufreq_limits_init(void)
 {
 	return -ENOSYS;
 }

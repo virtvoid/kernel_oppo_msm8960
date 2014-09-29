@@ -420,6 +420,13 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 /**
  * cpufreq_per_cpu_attr_write() / store_##file_name() - sysfs write access
  */
+#ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX	
+#include <linux/msm_thermal.h>
+#define MSM_THERMAL_UPDATE_LIMITS() msm_thermal_update_limits()
+#else
+#define MSM_THERMAL_UPDATE_LIMITS()
+#endif
+ 
 #define store_one(file_name, object)			\
 static ssize_t store_##file_name					\
 (struct cpufreq_policy *policy, const char *buf, size_t count)		\
@@ -438,7 +445,12 @@ static ssize_t store_##file_name					\
 	ret = __cpufreq_set_policy(policy, &new_policy);		\
 	policy->user_policy.object = policy->object;			\
 									\
-	return ret ? ret : count;					\
+	if (ret)		\
+		return ret;	\
+	else {		\
+		MSM_THERMAL_UPDATE_LIMITS();		\
+		return count;	\
+	}		\
 }
 
 store_one(scaling_min_freq, min);

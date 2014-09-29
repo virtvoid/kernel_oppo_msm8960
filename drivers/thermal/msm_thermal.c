@@ -9,12 +9,19 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * Added code to work as a standalone intelligent thermal throttling driver
- * for many Qualcomm SOCs by Paul Reioux (Faux123)
- * Modifications copyright (c) 2013~2014
+ * 2014-09 void: Reworked approach to deal with thermal issues.
+ * Base was Faux's intelli-thermal and original Oppo 4.2 source,
+ * but just offlining cores isn't the best approach imo.
+ * We need a combination of throttling and core offlining, together with
+ * focus on keeping cpu0 on highest possible freq.
+ * Also, limit_idx_low/high have to be read dynamically. Original
+ * approach just took compile-time min/max, ignoring the actual
+ * cpu policy. Pretty fatal with oc'ing enabled freq tables...
+ * Another addition is the re-introduction of overtemp. I just feel
+ * it's a good idea to keep a safety net, esp. with oc/ov in mind...
  *
  */
-
+ 
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -26,23 +33,31 @@
 #include <linux/msm_thermal.h>
 #include <mach/cpufreq.h>
 
+#define CORE_MAX_FREQ_HYSTERESIS 5
+
 static int enabled;
 static struct msm_thermal_data msm_thermal_info;
-static uint32_t limited_max_freq_thermal = MSM_CPUFREQ_NO_LIMIT;
 static struct delayed_work check_temp_work;
 static struct workqueue_struct *intellithermal_wq;
 static bool core_control_enabled;
 static uint32_t cpus_offlined;
 static DEFINE_MUTEX(core_control_mutex);
 
-static int limit_idx;
+static struct cpufreq_frequency_table *table;
 static int limit_idx_low;
 static int limit_idx_high;
-static struct cpufreq_frequency_table *table;
+static int limit_idx = INT_MAX;
+static long cur_temp = 0;
+static bool on_overtemp = false;
 
 /* module parameters */
+module_param_named(temp, cur_temp, long, 0644);
 module_param_named(poll_ms, msm_thermal_info.poll_ms, uint, 0664);
+module_param_named(limit_overtemp_degC, msm_thermal_info.limit_overtemp_degC,
+			int, 0664);
 module_param_named(limit_temp_degC, msm_thermal_info.limit_temp_degC,
+			int, 0664);
+module_param_named(temp_hysteresis_degC, msm_thermal_info.temp_hysteresis_degC,
 			int, 0664);
 module_param_named(freq_control_mask, msm_thermal_info.freq_control_mask,
 			uint, 0664);
@@ -51,13 +66,39 @@ module_param_named(core_limit_temp_degC, msm_thermal_info.core_limit_temp_degC,
 module_param_named(core_control_mask, msm_thermal_info.core_control_mask,
 			uint, 0664);
 
-module_param_named(thermal_limit_high, limit_idx_high, int, 0644);
-module_param_named(thermal_limit_low, limit_idx_low, int, 0644);
+/* called from sysfs change to scaling_max/min_freq (and during init) */
+int msm_thermal_update_limits(void)
+{
+	struct cpufreq_policy pol;
+	int i = 0;
+	int ret = 0;
+	int old_idx_high = limit_idx_high;
+
+	ret = cpufreq_get_policy(&pol, 0);
+	if (unlikely(ret)) {
+		pr_debug("%s: error reading cpufreq policy\n", KBUILD_MODNAME);
+	} else {
+		for (i = 0; table[i].frequency != CPUFREQ_TABLE_END; i++) {
+			if (table[i].frequency == pol.min)
+				limit_idx_low = i;
+			if (table[i].frequency == pol.max)
+				limit_idx_high = i;
+		}
+		/* scaling_max_freq either went up, or down */
+		if (old_idx_high < limit_idx_high ||
+				limit_idx > limit_idx_high)
+			limit_idx = limit_idx_high;
+	}
+
+	pr_debug("%s_dbg: limit_high %i, limit_low %i, limit_cur %i\n",
+		KBUILD_MODNAME, limit_idx_high, limit_idx_low, limit_idx);
+	return ret;
+}
 
 static int msm_thermal_get_freq_table(void)
 {
 	int ret = 0;
-	int i = 0;
+	struct cpu_freq *limit = NULL;
 
 	table = cpufreq_frequency_get_table(0);
 	if (table == NULL) {
@@ -66,11 +107,21 @@ static int msm_thermal_get_freq_table(void)
 		goto fail;
 	}
 
-	while (table[i].frequency != CPUFREQ_TABLE_END)
-		i++;
+	ret = msm_thermal_update_limits();
+	if (ret) {
+		ret = -EINVAL;
+		goto fail;
+	}
 
-	limit_idx_low = 0;
-	limit_idx_high = limit_idx = i - 1;
+	limit = &per_cpu(cpu_freq_info, 0);
+	if (!limit->limits_init) {
+		ret = msm_cpufreq_limits_init();
+		if (ret)
+			goto fail;
+	}
+
+	limit_idx = limit_idx_high;
+	pr_info("%s: init completed\n", KBUILD_MODNAME);
 	BUG_ON(limit_idx_high <= 0 || limit_idx_high <= limit_idx_low);
 fail:
 	return ret;
@@ -79,18 +130,22 @@ fail:
 static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 {
 	int ret = 0;
+	struct cpu_freq *limit = &per_cpu(cpu_freq_info, cpu);
 
-	ret = msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, max_freq);
-	if (ret)
-		return ret;
-
-	limited_max_freq_thermal = max_freq;
-	if (max_freq != MSM_CPUFREQ_NO_LIMIT)
-		pr_info("%s: Limiting cpu%d max frequency to %d\n",
-				KBUILD_MODNAME, cpu, max_freq);
-	else
-		pr_info("%s: Max frequency reset for cpu%d\n",
-				KBUILD_MODNAME, cpu);
+	if (max_freq <= limit->max && max_freq >= limit->min) {
+		limit->allowed_max = max_freq;
+		pr_info("%s: Limiting cpu%d max frequency to %d (%ld C)\n",
+			KBUILD_MODNAME, cpu, max_freq, cur_temp);
+	
+	} else if (max_freq == MSM_CPUFREQ_NO_LIMIT &&
+			limit->allowed_max != limit->max) {
+		limit->allowed_max = limit->max;
+		pr_info("%s: Max frequency reset for cpu%d (%ld C)\n",
+			KBUILD_MODNAME, cpu, cur_temp);
+	} else {
+		pr_debug("%s_dbg: cpu%d already on %d\n", KBUILD_MODNAME, cpu, max_freq);
+		return 0;
+	}
 
 	if (cpu_online(cpu)) {
 		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
@@ -105,47 +160,48 @@ static int update_cpu_max_freq(int cpu, uint32_t max_freq)
 }
 
 #ifdef CONFIG_SMP
-static void __ref do_core_control(long temp)
+static void __ref do_core_control(void)
 {
 	int i = 0;
 	int ret = 0;
 
 	if (!core_control_enabled)
 		return;
-
+	
 	mutex_lock(&core_control_mutex);
-	if (msm_thermal_info.core_control_mask &&
-		temp >= msm_thermal_info.core_limit_temp_degC) {
+	if (cur_temp >= msm_thermal_info.core_limit_temp_degC) {
 		for (i = num_possible_cpus(); i > 0; i--) {
 			if (!(msm_thermal_info.core_control_mask & BIT(i)))
 				continue;
 			if (cpus_offlined & BIT(i) && !cpu_online(i))
 				continue;
-			pr_info("%s: Set Offline: CPU%d Temp: %ld\n",
-					KBUILD_MODNAME, i, temp);
+			
+			pr_info("%s: Set Offline: CPU%d (%ld C)\n",
+					KBUILD_MODNAME, i, cur_temp);
 			ret = cpu_down(i);
-			if (ret)
+			if (unlikely(ret))
 				pr_err("%s: Error %d offline core %d\n",
 					KBUILD_MODNAME, ret, i);
 			cpus_offlined |= BIT(i);
 			break;
 		}
-	} else if (msm_thermal_info.core_control_mask && cpus_offlined &&
-		temp <= (msm_thermal_info.core_limit_temp_degC -
+	
+	} else if (cpus_offlined &&
+			cur_temp <= (msm_thermal_info.core_limit_temp_degC -
 			msm_thermal_info.core_temp_hysteresis_degC)) {
 		for (i = 0; i < num_possible_cpus(); i++) {
 			if (!(cpus_offlined & BIT(i)))
 				continue;
 			cpus_offlined &= ~BIT(i);
-			pr_info("%s: Allow Online CPU%d Temp: %ld\n",
-					KBUILD_MODNAME, i, temp);
+			pr_info("%s: Allow Online CPU%d (%ld C)\n",
+					KBUILD_MODNAME, i, cur_temp);
 			/* If this core is already online, then bring up the
 			 * next offlined core.
 			 */
 			if (cpu_online(i))
 				continue;
 			ret = cpu_up(i);
-			if (ret)
+			if (unlikely(ret))
 				pr_err("%s: Error %d online core %d\n",
 						KBUILD_MODNAME, ret, i);
 			break;
@@ -154,69 +210,134 @@ static void __ref do_core_control(long temp)
 	mutex_unlock(&core_control_mutex);
 }
 #else
-static void do_core_control(long temp)
+static void __ref do_core_control(void)
 {
 	return;
 }
 #endif
 
-static void __ref do_freq_control(long temp)
+static void __ref do_handle_overtemp(void)
 {
 	int ret = 0;
 	int cpu = 0;
-	uint32_t max_freq = limited_max_freq_thermal;
+	uint32_t max_freq = 0;
 
-	if (temp >= msm_thermal_info.limit_temp_degC) {
-		if (limit_idx == limit_idx_low)
-			return;
+	/* overtemp, ignore limit_idx_low and throttle rigorously */
+	if (cur_temp > msm_thermal_info.limit_overtemp_degC) {
+		pr_info("%s: !!! OVERTEMP !!! emergency min freq!\n", KBUILD_MODNAME);
+		on_overtemp = true;
+		max_freq = table[1].frequency;
+		for_each_possible_cpu(cpu) {
+			ret = update_cpu_max_freq(cpu, max_freq);
+			if (ret)
+				pr_info("%s: Unable to limit cpu%d max freq to %d\n",
+					KBUILD_MODNAME, cpu, max_freq);
+		}
 
-		limit_idx -= msm_thermal_info.freq_step;
-		if (limit_idx < limit_idx_low)
-			limit_idx = limit_idx_low;
-		max_freq = table[limit_idx].frequency;
-	} else if (temp < msm_thermal_info.limit_temp_degC -
-		 msm_thermal_info.temp_hysteresis_degC) {
-		if (limit_idx == limit_idx_high)
-			return;
-
-		limit_idx += msm_thermal_info.freq_step;
-		if (limit_idx >= limit_idx_high) {
-			limit_idx = limit_idx_high;
-			max_freq = MSM_CPUFREQ_NO_LIMIT;
-		} else
-			max_freq = table[limit_idx].frequency;
+	/* overtemp gone, all governed cores to limit_idx_low */
+	} else if (on_overtemp &&
+			cur_temp < msm_thermal_info.limit_temp_degC) {
+		pr_info("%s: OVERTEMP gone, resuming normal operation\n", KBUILD_MODNAME);
+			
+		/* cores with disabled freq_control have to be set to max,
+		 * else they're stuck on throttled overtemp freq
+		*/
+		for_each_possible_cpu(cpu) {
+			if (msm_thermal_info.freq_control_mask & BIT(cpu))
+				max_freq = table[limit_idx_low].frequency;
+			else
+				max_freq = MSM_CPUFREQ_NO_LIMIT;
+			
+			ret = update_cpu_max_freq(cpu, max_freq);
+			if (ret)
+				pr_info("%s: Unable to limit cpu%d max freq to %d\n",
+					KBUILD_MODNAME, cpu, max_freq);
+		}
+	
+		/* limit_idx_low to prevent overtemp oscilation */
+		limit_idx = limit_idx_low;
+		on_overtemp = false;
 	}
+	
+	/* offlining cores might have failed previously, causing
+	 * the overtemp condition in the first place -> try again
+	*/
+	do_core_control();
+}
 
-	if (max_freq == limited_max_freq_thermal)
-		return;
-
+static void __ref do_freq_control(void)
+{
+	int ret = 0;
+	int cpu = 0;
+	int cpu_limit_idx = limit_idx;
+	uint32_t max_freq = MSM_CPUFREQ_NO_LIMIT;
 
 	for_each_possible_cpu(cpu) {
 		if (!(msm_thermal_info.freq_control_mask & BIT(cpu)))
 			continue;
+		
+		cpu_limit_idx = limit_idx;
+		
+		/* decrease freq on high temp */
+		if (cur_temp >= msm_thermal_info.limit_temp_degC) {
+			if (limit_idx <= limit_idx_low)
+				return;
+			cpu_limit_idx -= (cpu+1);
+			if (cpu_limit_idx < limit_idx_low)
+				cpu_limit_idx = limit_idx_low;
+			max_freq = table[cpu_limit_idx].frequency;
+			
+		/* increase freq on low temp */
+		} else if (cur_temp < msm_thermal_info.limit_temp_degC -
+				msm_thermal_info.temp_hysteresis_degC) {
+			if (limit_idx >= limit_idx_high)
+				return;
+			
+			/* boost freq to max on very low temp */
+			if (cur_temp < msm_thermal_info.limit_temp_degC -
+					msm_thermal_info.temp_hysteresis_degC - CORE_MAX_FREQ_HYSTERESIS)
+				cpu_limit_idx = limit_idx_high;
+			else
+				cpu_limit_idx += (num_possible_cpus()-cpu);
+			
+			if (cpu_limit_idx >= limit_idx_high) {
+				cpu_limit_idx = limit_idx_high;
+				max_freq = MSM_CPUFREQ_NO_LIMIT;
+			} else
+				max_freq = table[cpu_limit_idx].frequency;
+		
+		/* do nothing within throtteling band */
+		} else {
+			pr_debug("%s_dbg: no freq change within bounds (%ld C)\n",
+				KBUILD_MODNAME, cur_temp);
+			return;
+		}
+		
 		ret = update_cpu_max_freq(cpu, max_freq);
 		if (ret)
-			pr_debug(
-			"%s: Unable to limit cpu%d max freq to %d\n",
-					KBUILD_MODNAME, cpu, max_freq);
+			pr_info("%s: Unable to limit cpu%d max freq to %d\n",
+				KBUILD_MODNAME, cpu, max_freq);
 	}
 
+	if (cpu_limit_idx == limit_idx_high) {
+		limit_idx = limit_idx_high;
+		return;
+	}	else if (cpu_limit_idx < limit_idx)
+		limit_idx--;
+	else
+		limit_idx++;
+	
+	if (limit_idx < limit_idx_low)
+		limit_idx = limit_idx_low;
+	else if (limit_idx > limit_idx_high)
+		limit_idx = limit_idx_high;
 }
 
 static void __ref check_temp(struct work_struct *work)
 {
 	static int limit_init;
 	struct tsens_device tsens_dev;
-	long temp = 0;
 	int ret = 0;
-
-	tsens_dev.sensor_num = msm_thermal_info.sensor_id;
-	ret = tsens_get_temp(&tsens_dev, &temp);
-	if (ret) {
-		pr_debug("%s: Unable to read TSENS sensor %d\n",
-				KBUILD_MODNAME, tsens_dev.sensor_num);
-		goto reschedule;
-	}
 
 	if (!limit_init) {
 		ret = msm_thermal_get_freq_table();
@@ -226,9 +347,27 @@ static void __ref check_temp(struct work_struct *work)
 			limit_init = 1;
 	}
 
-	do_core_control(temp);
-	do_freq_control(temp);
-	//pr_info("msm_thermal: worker is alive!\n");
+	tsens_dev.sensor_num = msm_thermal_info.sensor_id;
+	ret = tsens_get_temp(&tsens_dev, &cur_temp);
+	if (ret) {
+		pr_info("%s: Unable to read TSENS sensor %d\n",
+				KBUILD_MODNAME, tsens_dev.sensor_num);
+		goto reschedule;
+	}
+
+	/* Overtemp is nearly impossible to trigger on "stock" parameters.
+	 * But better keep it as safety net when oc/ov'ing ...
+	*/
+	if (on_overtemp ||
+			cur_temp > msm_thermal_info.limit_overtemp_degC)
+		do_handle_overtemp();
+	else {
+		if (msm_thermal_info.core_control_mask)
+			do_core_control();
+		if (msm_thermal_info.freq_control_mask)
+			do_freq_control();
+	}
+
 reschedule:
 	if (enabled)
 		queue_delayed_work(intellithermal_wq, &check_temp_work,
@@ -255,7 +394,6 @@ static int __ref msm_thermal_cpu_callback(struct notifier_block *nfb,
 		}
 	}
 
-
 	return NOTIFY_OK;
 }
 
@@ -271,7 +409,6 @@ static struct notifier_block __refdata msm_thermal_cpu_notifier = {
 static void __ref disable_msm_thermal(void)
 {
 	int cpu = 0;
-
 
 	flush_workqueue(intellithermal_wq);
 
@@ -497,6 +634,6 @@ late_initcall(msm_thermal_late_init);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Praveen Chidambaram <pchidamb@codeaurora.org>");
-MODULE_AUTHOR("Paul Reioux <reioux@gmail.com>");
+MODULE_AUTHOR("void");
 MODULE_DESCRIPTION("intelligent thermal driver for Qualcomm based SOCs");
 MODULE_DESCRIPTION("originally from Qualcomm's open source repo");
