@@ -21,7 +21,7 @@
  * it's a good idea to keep a safety net, esp. with oc/ov in mind...
  *
  */
- 
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -78,9 +78,10 @@ int msm_thermal_update_limits(void)
 	if (unlikely(ret)) {
 		pr_debug("%s: error reading cpufreq policy\n", KBUILD_MODNAME);
 	} else {
+		limit_idx_low = 0;
 		for (i = 0; table[i].frequency != CPUFREQ_TABLE_END; i++) {
-			if (table[i].frequency == pol.min)
-				limit_idx_low = i;
+			//if (table[i].frequency == pol.min)
+			//	limit_idx_low = i;
 			if (table[i].frequency == pol.max)
 				limit_idx_high = i;
 		}
